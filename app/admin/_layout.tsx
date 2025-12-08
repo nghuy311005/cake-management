@@ -1,7 +1,10 @@
-import { Tabs } from 'expo-router';
-import { Home, ShoppingBag, Package, User } from 'lucide-react-native';
+import { Tabs,useRouter } from 'expo-router';
+import { Home, ShoppingBag, Package, User, ChevronLeft } from 'lucide-react-native';
+import { TouchableOpacity } from 'react-native';
+
 
 export default function TabLayout() {
+  const router = useRouter();
   return (
     <Tabs
       screenOptions={{
@@ -18,7 +21,7 @@ export default function TabLayout() {
         },
       }}>
       <Tabs.Screen
-        name="index"
+        name="dashboard"
         options={{
           title: 'Home',
           tabBarIcon: ({ size, color }) => (
@@ -50,6 +53,24 @@ export default function TabLayout() {
           title: 'Profile',
           tabBarIcon: ({ size, color }) => (
             <User size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="AddCakeScreen"
+        options={{
+          href: null, // Ẩn khỏi menu dưới
+          tabBarStyle: { display: 'none' }, // Ẩn thanh tab bar khi vào trang này
+          headerShown: true, // Hiện header
+          title: 'Create New Cake',
+          // Thay thế headerBackTitle bằng headerLeft
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={{ marginLeft: 16 }} // Căn lề trái cho đẹp
+            >
+              <ChevronLeft size={28} color="#111827" />
+            </TouchableOpacity>
           ),
         }}
       />

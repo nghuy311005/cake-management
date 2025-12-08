@@ -1,8 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Plus, ChefHat } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const cakes = [
     {
       id: 1,
@@ -106,7 +108,10 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity 
+        style={styles.fab} 
+        onPress={() => router.push('/admin/AddCakeScreen')} 
+      >
         <Plus size={24} color="#ffffff" />
       </TouchableOpacity>
     </SafeAreaView>

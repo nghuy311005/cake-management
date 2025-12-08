@@ -1,15 +1,11 @@
-// Import các hàm cần thiết
-import { initializeApp } from "firebase/app";
-// 1. Import Auth và cấu hình lưu trữ cho React Native
-import { initializeAuth, Auth } from "firebase/auth";
-
-import AsyncStorage, { AsyncStorageStatic } from "@react-native-async-storage/async-storage";
-// 2. Import Firestore (Database)
+// src/services/firebaseConfig.ts
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
+// Bỏ initializeAuth và getReactNativePersistence gây lỗi
+import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from "firebase/firestore";
-// 3. Import Storage (Lưu ảnh)
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
-// Cấu hình của bạn (Tôi giữ nguyên key của bạn)
+// Config giữ nguyên
 const firebaseConfig = {
   apiKey: "AIzaSyBykSNVUreH6TNyM7kXAXyx1AdyFoyKTCg",
   authDomain: "cake-6716f.firebaseapp.com",
@@ -20,22 +16,21 @@ const firebaseConfig = {
   measurementId: "G-TDZPS7B7DE"
 };
 
-// Khởi tạo Firebase App
-const app = initializeApp(firebaseConfig);
+// --- Singleton Pattern ---
+let app: FirebaseApp;
+let auth: Auth;
 
-// --- QUAN TRỌNG: Cấu hình Auth với AsyncStorage ---
-// Giúp user không bị logout khi tắt app
-const auth: Auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
 
-// Khởi tạo Database và Storage
+// --- KHỞI TẠO AUTH ĐƠN GIẢN NHẤT ---
+// Cách này dùng cấu hình mặc định, không cần AsyncStorage nên sẽ không bị lỗi kia
+auth = getAuth(app);
+
 const db: Firestore = getFirestore(app);
 const storage: FirebaseStorage = getStorage(app);
 
-// Xuất ra để dùng ở các file khác
 export { app, auth, db, storage };
-
-function getReactNativePersistence(AsyncStorage: AsyncStorageStatic): import("@firebase/auth").Persistence | import("@firebase/auth").Persistence[] | undefined {
-    throw new Error("Function not implemented.");
-}
