@@ -5,11 +5,10 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
-import { Cake } from '../../src/models/cake.model';
-import { addCakeToFirestore } from '../../src/controllers/admin/cake.controller';
+import { Cake } from '../../../src/models/cake.model';
+import { addCakeToFirestore } from '../../../src/controllers/admin/cake.controller';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { pickImageFromGallery, uploadToCloudinary } from '../../src/helper/uploadImage';
+import { pickImageFromGallery, uploadToCloudinary } from '../../../src/helper/uploadImage';
 
 export default function AddCakeScreen() {
   const router = useRouter();

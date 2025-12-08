@@ -111,7 +111,10 @@ const MOCK_CATEGORIES = [
             </View>
           ))}
           {/* Nút thêm banner nhanh */}
-          <TouchableOpacity style={styles.addBannerBtn}>
+          <TouchableOpacity 
+            style={styles.addBannerBtn}
+            onPress={() => router.push('/admin/AddScreen/AddBannerScreen')} // <--- THÊM DÒNG NÀY
+          >
              <Plus size={24} color="#d97706" />
              <Text style={styles.addBannerText}>Add Banner</Text>
           </TouchableOpacity>
@@ -182,7 +185,7 @@ const MOCK_CATEGORIES = [
 
       <TouchableOpacity 
         style={styles.fab} 
-        onPress={() => router.push('/admin/AddCakeScreen')} 
+        onPress={() => router.push('/admin/AddScreen/AddCakeScreen')} 
       >
         <Plus size={24} color="#ffffff" />
       </TouchableOpacity>

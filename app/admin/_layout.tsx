@@ -57,7 +57,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="AddCakeScreen"
+        name="AddScreen/AddCakeScreen"
         options={{
           href: null, // Ẩn khỏi menu dưới
           tabBarStyle: { display: 'none' }, // Ẩn thanh tab bar khi vào trang này
@@ -68,6 +68,23 @@ export default function TabLayout() {
             <TouchableOpacity 
               onPress={() => router.back()} 
               style={{ marginLeft: 16 }} // Căn lề trái cho đẹp
+            >
+              <ChevronLeft size={28} color="#111827" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="AddScreen/AddBannerScreen"
+        options={{
+          href: null, // Ẩn khỏi menu dưới
+          tabBarStyle: { display: 'none' }, // Ẩn thanh tab bar khi vào trang này
+          headerShown: true,
+          title: 'Add New Banner',
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={{ marginLeft: 16 }}
             >
               <ChevronLeft size={28} color="#111827" />
             </TouchableOpacity>
