@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, StyleSheet, TouchableOpacity, 
   SafeAreaView, ScrollView, Image, ActivityIndicator, RefreshControl, StatusBar 
 } from 'react-native';
-import { Search, ShoppingBag, Plus, Star } from 'lucide-react-native'; 
+import { Search, ShoppingBag, Plus, Star, X } from 'lucide-react-native'; 
 import { useRouter, useFocusEffect } from 'expo-router';
 
 // Firebase Imports
@@ -32,6 +32,11 @@ export default function ClientHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 2. Thêm State mới
+  const [allCakes, setAllCakes] = useState<any[]>([]); // Lưu toàn bộ bánh để search
+  const [searchQuery, setSearchQuery] = useState('');    // Lưu từ khóa tìm kiếm
+  const [searchResults, setSearchResults] = useState<any[]>([]); // Lưu kết quả tìm thấy
+
   // [MỚI] Hàm lấy thông tin User
   const fetchUserInfo = async () => {
     try {
@@ -48,6 +53,7 @@ export default function ClientHomeScreen() {
       console.log("Lỗi lấy tên user:", error);
     }
   };
+  
 
   // Hàm lấy dữ liệu
   const fetchData = async () => {
@@ -58,21 +64,18 @@ export default function ClientHomeScreen() {
         getCakes(), getBanners(), getCategories()
       ]);
       
-      // Xử lý ảnh và data bánh
       const formattedCakes = cakesData.map(item => ({
         ...item,
         image: (item.images && item.images.length > 0) ? item.images[0] : 'https://via.placeholder.com/150',
-        rate: item.rate || 0, // Đảm bảo có rate
+        rate: item.rate || 0,
       }));
 
-      // 1. Lọc New Cakes: Lấy 8 cái mới nhất (Đảo ngược mảng gốc)
-      // Lưu ý: Nếu Firestore trả về cũ -> mới, thì reverse() sẽ ra mới nhất.
-      const recentCakes = [...formattedCakes].reverse().slice(0, 8);
+      // 3. LƯU TOÀN BỘ BÁNH VÀO STATE
+      setAllCakes(formattedCakes); 
 
-      // 2. Lọc Popular Cakes: Sort theo rate giảm dần, lấy 8 cái
-      const topRatedCakes = [...formattedCakes]
-        .sort((a, b) => b.rate - a.rate)
-        .slice(0, 8);
+      // ... logic lọc new/popular cũ giữ nguyên
+      const recentCakes = [...formattedCakes].reverse().slice(0, 8);
+      const topRatedCakes = [...formattedCakes].sort((a, b) => b.rate - a.rate).slice(0, 8);
 
       setNewCakes(recentCakes);
       setPopularCakes(topRatedCakes);
@@ -85,6 +88,28 @@ export default function ClientHomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  // 4. Hàm Xử lý Tìm kiếm
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    if (text) {
+      const newData = allCakes.filter(item => {
+        const itemData = item.name ? item.name.toUpperCase() : ''.toUpperCase();
+        const textData = text.toUpperCase();
+        // Tìm theo tên (hoặc bạn có thể thêm category vào đây)
+        return itemData.indexOf(textData) > -1;
+      });
+      setSearchResults(newData);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Hàm xóa tìm kiếm
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   // Gọi cả 2 hàm khi màn hình được focus
@@ -149,7 +174,15 @@ export default function ClientHomeScreen() {
                  style={styles.searchInput}
                  placeholder="Search cake, dessert..."
                  placeholderTextColor="#9ca3af"
+                 value={searchQuery}          // Bind giá trị
+                 onChangeText={handleSearch}  // Bắt sự kiện
              />
+             {/* Nút X để xóa text */}
+             {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={clearSearch}>
+                    <X size={20} color="#9ca3af" />
+                </TouchableOpacity>
+             )}
          </View>
       </View>
 
@@ -158,8 +191,50 @@ export default function ClientHomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME_COLOR]} />}
       >
-        
-        {/* 2. BANNERS */}
+        {/* --- ĐIỀU KIỆN HIỂN THỊ --- */}
+        {searchQuery.length > 0 ? (
+            // === GIAO DIỆN KẾT QUẢ TÌM KIẾM ===
+            <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                <Text style={styles.sectionTitle}>Found {searchResults.length} results</Text>
+                
+                {searchResults.length === 0 ? (
+                    <View style={{ alignItems: 'center', marginTop: 50 }}>
+                        <Text style={{ color: '#9ca3af' }}>No cakes found matching "{searchQuery}"</Text>
+                    </View>
+                ) : (
+                    // Tái sử dụng Grid Card (giống bên Admin hoặc CakeManagement)
+                    // Hoặc render list dọc đơn giản
+                    <View style={styles.searchGrid}>
+                        {searchResults.map(cake => (
+                            <TouchableOpacity 
+                                key={cake.id} 
+                                style={styles.cakeCardHorizontal} // Tái sử dụng style card ngang
+                                onPress={() => handleProductPress(cake.id)}
+                            >
+                                <View style={styles.imageWrapper}>
+                                    <Image source={{ uri: cake.image }} style={styles.cakeImage} />
+                                    <View style={styles.ratingBadge}>
+                                        <Star size={10} color="#fff" fill="#fff" />
+                                        <Text style={styles.ratingText}>{cake.rate.toFixed(1)}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.cakeInfo}>
+                                    <Text style={styles.cakeName} numberOfLines={1}>{cake.name}</Text>
+                                    <Text style={styles.cakeCategory} numberOfLines={1}>{cake.category}</Text>
+                                    <View style={styles.cakeFooter}>
+                                        <Text style={styles.cakePrice}>${cake.price}</Text>
+                                        <View style={styles.addBtn}><Plus size={16} color="#fff" /></View>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+            </View>
+        ) : (
+            // === GIAO DIỆN HOME BÌNH THƯỜNG (Banner, Category, New...) ===
+            <>
+                {/* 2. BANNERS */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannerScroll} contentContainerStyle={{paddingHorizontal: 20}}>
           {banners.map((banner) => (
             <View key={banner.id} style={styles.bannerCard}>
@@ -210,6 +285,8 @@ export default function ClientHomeScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: 20}}>
                 {popularCakes.map(cake => renderCakeItem(cake))}
             </ScrollView>
+        )}
+            </>
         )}
         
       </ScrollView>
@@ -283,5 +360,12 @@ const styles = StyleSheet.create({
   cakeFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cakePrice: { fontSize: 16, fontWeight: 'bold', color: THEME_COLOR },
   addBtn: { backgroundColor: THEME_COLOR, padding: 6, borderRadius: 8 },
+  // Style mới cho Grid tìm kiếm
+  searchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
 
 });
