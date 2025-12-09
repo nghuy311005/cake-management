@@ -1,19 +1,55 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Bell, CreditCard, HelpCircle, LogOut, ChevronRight, Moon } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { User, Bell, CreditCard, HelpCircle, LogOut, ChevronRight, Moon, Lock } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 
-// Import Controller Logout
+// Firebase Imports
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../src/services/firebaseConfig';
 import { logoutUser } from '../../src/controllers/auth.controller';
+
+// Import Modals (Tái sử dụng từ Admin)
+import EditProfileModal from '../../src/views/components/modals/EditProfileModal';
+import ChangePasswordModal from '../../src/views/components/modals/ChangePasswordModal';
 
 export default function ClientProfileScreen() {
   const router = useRouter();
+  const auth = getAuth();
   
+  // State UI
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
-  // Xử lý Đăng xuất
+  // State Data
+  const [userInfo, setUserInfo] = useState<any>({});
+  
+  // State Modals
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [changePassVisible, setChangePassVisible] = useState(false);
+
+  // 1. Hàm lấy dữ liệu Profile
+  const fetchProfileData = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          setUserInfo({ id: currentUser.uid, ...userDoc.data() });
+        }
+      }
+    } catch (error) {
+      console.error("Lỗi lấy data profile:", error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileData();
+    }, [])
+  );
+
   const handleLogout = () => {
     Alert.alert(
       "Log Out",
@@ -40,8 +76,19 @@ export default function ClientProfileScreen() {
     {
       title: 'Account',
       items: [
-        { icon: User, label: 'Personal Information', hasArrow: true },
-        { icon: CreditCard, label: 'Payment Methods', hasArrow: true },
+        { 
+            icon: User, 
+            label: 'Personal Information', 
+            hasArrow: true,
+            onPress: () => setEditModalVisible(true) // Mở modal Edit
+        },
+        { 
+            icon: Lock, 
+            label: 'Change Password', 
+            hasArrow: true,
+            onPress: () => setChangePassVisible(true) // Mở modal Đổi Pass
+        },
+        // { icon: CreditCard, label: 'Payment Methods', hasArrow: true }, // Tạm ẩn hoặc để làm sau
       ],
     },
     {
@@ -81,15 +128,21 @@ export default function ClientProfileScreen() {
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Card (Đã xóa Stats Row) */}
+        {/* Profile Card (Hiện thông tin thật) */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <User size={32} color="#d97706" />
-            </View>
+            {userInfo.avatarUrl ? (
+                <View style={styles.avatarWrapper}>
+                    <Image source={{ uri: userInfo.avatarUrl }} style={styles.avatarImage} />
+                </View>
+            ) : (
+                <View style={styles.avatar}>
+                    <User size={32} color="#d97706" />
+                </View>
+            )}
           </View>
-          <Text style={styles.profileName}>Client User</Text>
-          <Text style={styles.profileEmail}>client@example.com</Text>
+          <Text style={styles.profileName}>{userInfo.name || "Client User"}</Text>
+          <Text style={styles.profileEmail}>{userInfo.email || "client@example.com"}</Text>
         </View>
 
         {/* Menu Sections */}
@@ -143,6 +196,20 @@ export default function ClientProfileScreen() {
         <Text style={styles.version}>App Version 1.0.0</Text>
         <View style={{height: 20}} />
       </ScrollView>
+
+      {/* --- GỌI CÁC MODAL --- */}
+      <EditProfileModal 
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        user={userInfo}
+        onUpdateSuccess={() => fetchProfileData()}
+      />
+
+      <ChangePasswordModal 
+        visible={changePassVisible}
+        onClose={() => setChangePassVisible(false)}
+      />
+
     </SafeAreaView>
   );
 }
@@ -189,6 +256,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  avatarWrapper: {
+    width: 80, height: 80, borderRadius: 40, overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb'
+  },
+  avatarImage: { width: '100%', height: '100%' },
+
   profileName: {
     fontSize: 20,
     fontWeight: '700',
@@ -198,7 +270,6 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontSize: 14,
     color: '#6b7280',
-    // Đã xóa marginBottom: 24 vì không còn phần stats bên dưới
   },
   menuSection: {
     marginBottom: 24,

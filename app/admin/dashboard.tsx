@@ -1,7 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, ActivityIndicator, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Plus, ChefHat } from 'lucide-react-native';
+import { Search, Plus, ChefHat, Bell } from 'lucide-react-native'; // Thêm Bell icon
 import { useFocusEffect, useRouter } from 'expo-router';
+
+// Firebase Imports
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../src/services/firebaseConfig';
 
 import { Banner } from '../../src/models/banner.model';
 import { Cake } from '../../src/models/cake.model';
@@ -17,85 +22,94 @@ import BannerModal from '../../src/views/components/modals/BannerModal';
 
 import { useCallback, useEffect, useState } from 'react';
 
-
 export default function HomeScreen() {
   const router = useRouter();
+  const auth = getAuth();
 
-  // 2. State lưu dữ liệu
+  // State User Admin
+  const [adminName, setAdminName] = useState('Admin');
+  const [adminAvatar, setAdminAvatar] = useState('https://via.placeholder.com/150');
+
+  // State lưu dữ liệu
   const [cakes, setCakes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ---> STATE CHO MODAL EDIT <---
+  // State Modals
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedCake, setSelectedCake] = useState<any>(null);
-  // ---> STATE CHO MODAL CATEGORY (MỚI) <---
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  // STATE CHO MODAL BANNER
   const [bannerModalVisible, setBannerModalVisible] = useState(false);
   const [selectedBanner, setSelectedBanner] = useState<any>(null);
 
-  // 3. Hàm lấy dữ liệu
+  // 1. Hàm lấy thông tin Admin
+  const fetchAdminInfo = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setAdminName(data.name || 'Admin'); 
+          if(data.avatarUrl) setAdminAvatar(data.avatarUrl);
+        }
+      }
+    } catch (error) {
+      console.error("Lỗi lấy thông tin admin:", error);
+    }
+  };
+
+  // 2. Hàm lấy dữ liệu Dashboard
   const fetchData = async () => {
     try {
       if (!refreshing) setLoading(true);
       
-      // Chạy song song 3 request: Cakes, Banners, Categories
       const [cakesData, bannersData, categoriesData] = await Promise.all([
         getCakes(),
         getBanners(),
-        getCategories() // <-- GỌI HÀM LẤY CATEGORY
+        getCategories()
       ]);
 
-      // 1. Xử lý dữ liệu Cake
       const formattedCakes = cakesData.map(item => ({
         ...item,
-        // Model Cake là mảng images[], lấy ảnh đầu tiên
         image: (item.images && item.images.length > 0) ? item.images[0] : 'https://via.placeholder.com/150' 
       }));
       setCakes(formattedCakes);
-
-      // 2. Xử lý dữ liệu Banner
-      // Model Banner đã chuẩn rồi, gán trực tiếp
       setBanners(bannersData);
-      // C. Xử lý dữ liệu Category
       setCategories(categoriesData);
 
     } catch (error) {
       console.error("Lỗi lấy dữ liệu dashboard:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     };
   };
 
-  // 4. Gọi hàm khi màn hình mở lên
   useFocusEffect(
     useCallback(() => {
-      fetchData();
+      fetchAdminInfo(); // Lấy thông tin admin
+      fetchData();      // Lấy dữ liệu
     }, [])
   );
 
-  // 5. Hàm xử lý khi kéo xuống để reload
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchData();
+    await fetchAdminInfo();
+    await fetchData();
   }, []);
-  //  HÀM MỞ MODAL KHI BẤM VÀO BÁNH <---
+
   const handleEditCake = (cake: any) => {
-    console.log("Edit cake:", cake.name);
-    setSelectedCake(cake); // Lưu bánh được chọn
-    setModalVisible(true); // Hiện modal
+    setSelectedCake(cake);
+    setModalVisible(true);
   };
-  // HÀM MỞ MODAL CATEGORY <---
   const handleEditCategory = (cat: any) => {
-    console.log("Edit category:", cat.name);
     setSelectedCategory(cat);
     setCategoryModalVisible(true);
   };
-  // HÀM MỞ MODAL BANNER
   const handleEditBanner = (banner: any) => {
     setSelectedBanner(banner);
     setBannerModalVisible(true);
@@ -103,28 +117,31 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      
+      {/* --- HEADER ADMIN (ĐÃ SỬA) --- */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Welcome Back!</Text>
-          <Text style={styles.title}>Cake Management</Text>
+        <View style={styles.headerLeft}>
+            {/* Avatar Admin */}
+            <Image source={{ uri: adminAvatar }} style={styles.avatar} />
+            <View style={styles.headerTextContainer}>
+                <Text style={styles.greeting}>Welcome Back,</Text>
+                <Text style={styles.adminName}>{adminName} 👋</Text>
+            </View>
         </View>
-        <View style={styles.logoContainer}>
-          <ChefHat size={32} color="#d97706" />
-        </View>
+        
+        {/* Nút Notification giả */}
+        <TouchableOpacity style={styles.iconButton}>
+            <Bell size={24} color="#374151" />
+            <View style={styles.notificationDot} />
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.searchContainer}>
-        <Search size={20} color="#9ca3af" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search cakes..."
-          placeholderTextColor="#9ca3af"
-        />
-      </View>
+      {/* --------------------------- */}
 
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#d97706"]} />}
       >
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -140,6 +157,7 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Revenue</Text>
           </View>
         </View>
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Special Offers (Banners)</Text>
           <TouchableOpacity onPress={() => router.push('/admin/Management/BannerManagementScreen')}>
@@ -148,12 +166,10 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannerScroll}>
-          {/* Map dữ liệu thật từ state banners */}
           {banners.map((banner) => (
             <TouchableOpacity 
                 key={banner.id} 
                 style={styles.bannerCard}
-                // ---> GẮN SỰ KIỆN EDIT NHANH TẠI ĐÂY <---
                 onPress={() => handleEditBanner(banner)}
             >
               <Image source={{ uri: banner.imageUrl }} style={styles.bannerImage} />
@@ -166,22 +182,18 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           ))}
-          {/* Nút thêm banner nhanh */}
           <TouchableOpacity 
             style={styles.addBannerBtn}
-            onPress={() => router.push('/admin/AddScreen/AddBannerScreen')} // <--- THÊM DÒNG NÀY
+            onPress={() => router.push('/admin/AddScreen/AddBannerScreen')}
           >
-             <Plus size={24} color="#d97706" />
-             <Text style={styles.addBannerText}>Add Banner</Text>
+              <Plus size={24} color="#d97706" />
+              <Text style={styles.addBannerText}>Add Banner</Text>
           </TouchableOpacity>
         </ScrollView>
 
-        {/* 3. CATEGORIES SECTION (UI MỚI) */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Categories</Text>
-          <TouchableOpacity 
-             onPress={() => router.push('/admin/Management/CategoryManagementScreen')} // <--- SỬA DÒNG NÀY
-          >
+          <TouchableOpacity onPress={() => router.push('/admin/Management/CategoryManagementScreen')}>
             <Text style={styles.seeAll}>Manage</Text>
           </TouchableOpacity>
         </View>
@@ -191,17 +203,14 @@ export default function HomeScreen() {
             <TouchableOpacity 
                 key={cat.id} 
                 style={styles.categoryItem}
-                // ---> GẮN SỰ KIỆN TẠI ĐÂY <---
                 onPress={() => handleEditCategory(cat)} 
             >
               <View style={styles.categoryIconContainer}>
-                {/* Model Category có trường `icon` chứa URL ảnh */}
                 <Image source={{ uri: cat.icon }} style={styles.categoryIcon} />
               </View>
               <Text style={styles.categoryName} numberOfLines={1}>{cat.name}</Text>
             </TouchableOpacity>
           ))}
-          {/* Nút thêm category nhanh */}
            <TouchableOpacity 
               style={styles.categoryItem}
               onPress={() => router.push('/admin/AddScreen/AddCategoryScreen')} 
@@ -212,16 +221,14 @@ export default function HomeScreen() {
               <Text style={styles.categoryName}>Add New</Text>
             </TouchableOpacity>
         </ScrollView>
-        {/* 4. PRODUCT LIST SECTION */}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Product List</Text>
-          <TouchableOpacity 
-             onPress={() => router.push('/admin/Management/CakeManagementScreen')} 
-          >
+          <TouchableOpacity onPress={() => router.push('/admin/Management/CakeManagementScreen')}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
-        {/* load cakes */}
+
           {loading && !refreshing ? (
            <ActivityIndicator size="large" color="#d97706" style={{marginTop: 20}} />
         ) : (
@@ -230,7 +237,7 @@ export default function HomeScreen() {
                <TouchableOpacity 
                   key={cake.id} 
                   style={styles.cakeCard}
-                  onPress={() => handleEditCake(cake)} // <--- BẮT SỰ KIỆN TẠI ĐÂY
+                  onPress={() => handleEditCake(cake)} 
                >
                  <Image source={{ uri: cake.image }} style={styles.cakeImage} />
                  <View style={styles.cakeInfo}>
@@ -241,12 +248,12 @@ export default function HomeScreen() {
                      <View style={[
                       styles.statusBadge, 
                       cake.status === 'Low Stock' && styles.statusBadgeWarning,
-                      cake.status === 'Out of Stock' && styles.statusBadgeError // <--- Thêm dòng này (Màu đỏ nền)
+                      cake.status === 'Out of Stock' && styles.statusBadgeError
                     ]}>
                       <Text style={[
                         styles.statusText, 
                         cake.status === 'Low Stock' && styles.statusTextWarning,
-                        cake.status === 'Out of Stock' && styles.statusTextError // <--- Thêm dòng này (Màu đỏ chữ)
+                        cake.status === 'Out of Stock' && styles.statusTextError
                       ]}>
                         {cake.status}
                       </Text>
@@ -270,18 +277,14 @@ export default function HomeScreen() {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         cake={selectedCake}
-        categories={categories} // Truyền list danh mục để chọn trong modal
-        onUpdateSuccess={() => {
-            fetchData(); // Reload lại Dashboard sau khi sửa xong
-        }}
+        categories={categories}
+        onUpdateSuccess={() => fetchData()}
       />
       <CategoryModal 
         visible={categoryModalVisible}
         onClose={() => setCategoryModalVisible(false)}
         category={selectedCategory}
-        onUpdateSuccess={() => {
-            fetchData(); // Reload lại Dashboard sau khi sửa xong danh mục
-        }}
+        onUpdateSuccess={() => fetchData()}
       />
       <BannerModal 
          visible={bannerModalVisible}
@@ -294,44 +297,32 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  // --- 1. Main Container & Layout ---
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  content: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#f9fafb' },
+  content: { flex: 1 },
 
-  // --- 2. Header & Search ---
+  // --- HEADER STYLES (MỚI) ---
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 24, paddingVertical: 16,
+    backgroundColor: '#fff', 
+    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
+    shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
+    marginBottom: 10
   },
-  greeting: { fontSize: 14, color: '#6b7280' },
-  title: { fontSize: 24, fontWeight: '700', color: '#111827', marginTop: 2 },
-  logoContainer: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#fef3c7', justifyContent: 'center', alignItems: 'center',
-  },
-  searchContainer: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#ffffff', marginHorizontal: 20, marginVertical: 16,
-    paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb',
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, height: 48, fontSize: 16, color: '#111827' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#e5e7eb' },
+  headerTextContainer: { marginLeft: 12 },
+  greeting: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
+  adminName: { fontSize: 18, color: '#111827', fontWeight: 'bold' },
+  
+  iconButton: { padding: 10, backgroundColor: '#f3f4f6', borderRadius: 12, position: 'relative' },
+  notificationDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', borderWidth: 1, borderColor: '#fff' },
+  // ---------------------------
 
-  // --- 3. Stats Section (Thống kê) ---
+  // Stats Section
   statsContainer: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingHorizontal: 20, marginBottom: 24,
+    paddingHorizontal: 20, marginBottom: 24, marginTop: 10
   },
   statCard: {
     flex: 1, backgroundColor: '#ffffff', borderRadius: 12,
@@ -341,7 +332,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: '700', color: '#d97706', marginBottom: 4 },
   statLabel: { fontSize: 12, color: '#6b7280', textAlign: 'center' },
 
-  // --- 4. Common Section Headers ---
+  // Common Section Headers
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 16, paddingHorizontal: 20,
@@ -349,10 +340,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
   seeAll: { fontSize: 14, color: '#d97706', fontWeight: '600' },
 
-  // --- 5. Banner Section (Mới thêm) ---
-  bannerScroll: {
-    paddingLeft: 20, marginBottom: 24,
-  },
+  // Banner Section
+  bannerScroll: { paddingLeft: 20, marginBottom: 24 },
   bannerCard: {
     width: 280, height: 140, marginRight: 16,
     borderRadius: 12, overflow: 'hidden', position: 'relative',
@@ -370,7 +359,6 @@ const styles = StyleSheet.create({
   bannerTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
   bannerDiscount: { fontSize: 22, fontWeight: '800', color: '#ffffff' },
   
-  // Nút Add Banner
   addBannerBtn: {
     width: 100, height: 140, marginRight: 20,
     backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#d97706',
@@ -378,13 +366,9 @@ const styles = StyleSheet.create({
   },
   addBannerText: { marginTop: 8, fontSize: 12, fontWeight: '600', color: '#d97706' },
 
-  // --- 6. Category Section (Mới thêm) ---
-  categoryScroll: {
-    paddingLeft: 20, marginBottom: 24,
-  },
-  categoryItem: {
-    marginRight: 20, alignItems: 'center', width: 70,
-  },
+  // Category Section
+  categoryScroll: { paddingLeft: 20, marginBottom: 24 },
+  categoryItem: { marginRight: 20, alignItems: 'center', width: 70 },
   categoryIconContainer: {
     width: 60, height: 60, borderRadius: 30,
     backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center',
@@ -392,11 +376,9 @@ const styles = StyleSheet.create({
   },
   categoryIcon: { width: 32, height: 32, resizeMode: 'contain' },
   categoryName: { fontSize: 12, fontWeight: '500', color: '#374151', textAlign: 'center' },
-  addCategoryIcon: {
-    backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#d97706',
-  },
+  addCategoryIcon: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#d97706' },
 
-  // --- 7. Product List (Cake Grid) ---
+  // Product List (Cake Grid)
   cakeGrid: {
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingBottom: 80,
@@ -412,15 +394,13 @@ const styles = StyleSheet.create({
   cakeFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cakePrice: { fontSize: 16, fontWeight: '700', color: '#d97706' },
   
-  // Status Badge
   statusBadge: { backgroundColor: '#d1fae5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusBadgeWarning: { backgroundColor: '#fef3c7' },
   statusText: { fontSize: 10, fontWeight: '600', color: '#059669' },
   statusTextWarning: { color: '#d97706' },
-  statusBadgeError: { backgroundColor: '#fee2e2' }, // Màu nền đỏ nhạt
+  statusBadgeError: { backgroundColor: '#fee2e2' },
   statusTextError: { color: '#dc2626' },
 
-  // --- 8. Floating Action Button ---
   fab: {
     position: 'absolute', bottom: 30, right: 20,
     width: 56, height: 56, borderRadius: 28,

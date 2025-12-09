@@ -9,13 +9,14 @@ import { ChevronLeft, User, Mail, Phone, MapPin, Lock, Eye, EyeOff } from 'lucid
 
 // Import Controller & Model
 import { addUserToFirestore } from '../../src/controllers/admin/auth.controller';
-import { User as UserModel } from '../../src/models/user.model'; // Đổi tên để tránh trùng
+import { User as UserModel } from '../../src/models/user.model'; 
 
 export default function RegisterScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   // Form State
+  const [name, setName] = useState(''); // [MỚI] Thêm Name
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,8 +26,8 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     // 1. Validate cơ bản
-    if (!email || !password || !phone) {
-      Alert.alert('Missing Info', 'Please fill in Email, Password and Phone.');
+    if (!name || !email || !password || !phone) {
+      Alert.alert('Missing Info', 'Please fill in Name, Email, Password and Phone.');
       return;
     }
 
@@ -42,15 +43,16 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      // 2. Tạo Model User (Mặc định role là 'client')
+      // 2. Tạo Model User (Cập nhật theo constructor mới có name)
       const newUser = new UserModel(
-        '', 
+        '',             // id (để trống, controller tự xử lý)
         email.trim(),
+        name.trim(),    // [MỚI] Truyền name vào đây
         phone.trim(),
         'https://via.placeholder.com/150', // Avatar mặc định
         address.trim(),
-        [], 
-        'client', // <--- QUAN TRỌNG: Mặc định là Client
+        [],             // favorites
+        'client',       // role
         Date.now(),
         password.trim() 
       );
@@ -62,7 +64,7 @@ export default function RegisterScreen() {
       Alert.alert('Welcome!', 'Account created successfully.', [
         { 
           text: "Let's Shop", 
-          onPress: () => router.replace('/client/home') // Vào thẳng trang chủ
+          onPress: () => router.replace('/client/home') 
         }
       ]);
 
@@ -94,6 +96,19 @@ export default function RegisterScreen() {
           {/* Form Inputs */}
           <View style={styles.form}>
             
+            {/* [MỚI] Full Name */}
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Full Name</Text>
+                <View style={styles.inputContainer}>
+                    <User size={20} color="#9ca3af" style={styles.icon} />
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="John Doe" 
+                        value={name} onChangeText={setName}
+                    />
+                </View>
+            </View>
+
             {/* Email */}
             <View style={styles.inputGroup}>
                 <Text style={styles.label}>Email Address</Text>

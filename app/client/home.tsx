@@ -6,6 +6,10 @@ import {
 import { Search, ShoppingBag, Plus, Star } from 'lucide-react-native'; 
 import { useRouter, useFocusEffect } from 'expo-router';
 
+// Firebase Imports
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../src/services/firebaseConfig';
+
 // Controller
 import { getCakes } from '../../src/controllers/admin/cake.controller';
 import { getBanners } from '../../src/controllers/admin/banner.controller';
@@ -22,11 +26,28 @@ export default function ClientHomeScreen() {
   const [banners, setBanners] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   
-  // Giả lập tên User (Sau này lấy từ Auth Context)
-  const userName = "Hoang Long";
+  // [MỚI] State tên User thật
+  const [userName, setUserName] = useState("Guest");
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // [MỚI] Hàm lấy thông tin User
+  const fetchUserInfo = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          // Lấy field name, nếu không có thì để mặc định
+          setUserName(userData.name || "User");
+        }
+      }
+    } catch (error) {
+      console.log("Lỗi lấy tên user:", error);
+    }
+  };
 
   // Hàm lấy dữ liệu
   const fetchData = async () => {
@@ -66,7 +87,11 @@ export default function ClientHomeScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => { fetchData() }, []));
+  // Gọi cả 2 hàm khi màn hình được focus
+  useFocusEffect(useCallback(() => { 
+    fetchUserInfo(); // Lấy tên
+    fetchData();     // Lấy dữ liệu
+  }, []));
 
   const onRefresh = useCallback(() => { setRefreshing(true); fetchData(); }, []);
 
