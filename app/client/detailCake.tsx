@@ -1,183 +1,211 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions 
+  View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, 
+  ActivityIndicator, Dimensions, StatusBar 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { ChevronLeft, ShoppingBag, Minus, Plus, Tag } from 'lucide-react-native';
+import { 
+  ChevronLeft, ShoppingBag, Minus, Plus, Heart, Tag, Star
+} from 'lucide-react-native';
 
-// --- QUAN TRỌNG: KIỂM TRA LẠI ĐƯỜNG DẪN IMPORT NÀY ---
-// Hãy đảm bảo nó trỏ đúng đến file controller và model của bạn
+// Import Controller & Model
 import { getCakeById } from '../../src/controllers/admin/cake.controller';
 import { Cake } from '../../src/models/cake.model';
-// ----------------------------------------------------
 
 const { width } = Dimensions.get('window');
-const THEME_COLOR = '#d97706'; // Màu cam chủ đạo
+const THEME_COLOR = '#d97706'; // Cam chủ đạo
 
 export default function DetailCakeScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams(); // Lấy ID từ URL
+  const { id } = useLocalSearchParams();
   
   const [cake, setCake] = useState<Cake | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1); // State cho số lượng mua
+  const [quantity, setQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState<any>(null); 
+  const [isFavorite, setIsFavorite] = useState(false);
 
-  // 1. Fetch dữ liệu khi component mount
   useEffect(() => {
     const fetchCakeDetails = async () => {
-      // Ép kiểu về string và xóa khoảng trắng
       let cakeId = Array.isArray(id) ? id[0] : id;
-      
-      if (!cakeId) {
-        console.log("ID bị null/undefined");
-        return;
-      }
-      
-      cakeId = cakeId.trim(); // QUAN TRỌNG: Xóa khoảng trắng
+      if (!cakeId) return;
+      cakeId = cakeId.trim();
 
       setLoading(true);
       try {
         const data = await getCakeById(cakeId);
         setCake(data);
+        if (data?.variants && data.variants.length > 0) {
+          setSelectedVariant(data.variants[0]);
+        }
       } catch (error) {
         console.error("Lỗi:", error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchCakeDetails();
   }, [id]);
-  // 2. Hàm tăng giảm số lượng
+
   const handleQuantity = (type: 'increase' | 'decrease') => {
-    if (type === 'decrease' && quantity > 1) {
-      setQuantity(quantity - 1);
-    } else if (type === 'increase') {
-        // Nếu muốn giới hạn theo stock:
-        // if (cake && quantity < cake.stock) setQuantity(quantity + 1);
-      setQuantity(quantity + 1);
-    }
+    if (type === 'decrease' && quantity > 1) setQuantity(quantity - 1);
+    else if (type === 'increase') setQuantity(quantity + 1);
   };
 
-  // 3. Hàm thêm vào giỏ hàng (Xử lý sau)
+  // --- LOGIC TÍNH GIÁ ---
+  const basePrice = selectedVariant ? selectedVariant.price : (cake?.price || 0);
+  const discountPercent = cake?.discount || 0;
+  
+  // Giá sau giảm
+  const finalPrice = discountPercent > 0 
+      ? basePrice * (1 - discountPercent / 100) 
+      : basePrice;
+
+  // Tổng tiền
+  const totalPrice = finalPrice * quantity;
+
   const handleAddToCart = () => {
      if(!cake || !cake.isAvailable) return;
-     console.log(`Add to cart: ${cake.name}, Quantity: ${quantity}, Total: ${cake.price * quantity}`);
-     alert(`Đã thêm ${quantity} ${cake.name} vào giỏ!`);
-     // Sau này sẽ gọi hàm từ CartController ở đây
+     const sizeLabel = selectedVariant ? `(${selectedVariant.label})` : '';
+     alert(`Đã thêm: ${quantity} x ${cake.name} ${sizeLabel}\nTổng: $${totalPrice.toFixed(2)}`);
   };
 
+  const toggleFavorite = () => setIsFavorite(!isFavorite);
 
-  // --- RENDER STATES ---
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={THEME_COLOR} /></View>;
+  if (!cake) return <View style={styles.center}><Text>Không tìm thấy bánh!</Text></View>;
 
-  // Màn hình Loading
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={THEME_COLOR} />
-      </View>
-    );
-  }
-
-  // Màn hình lỗi nếu không tìm thấy bánh
-  if (!cake) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Không tìm thấy thông tin bánh!</Text>
-        <TouchableOpacity style={styles.backButtonSimple} onPress={() => router.back()}>
-           <Text style={{color: THEME_COLOR, fontSize: 16, fontWeight: '600'}}>Quay lại</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // --- RENDER MAIN UI ---
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Cấu hình Header trong suốt */}
-      <Stack.Screen options={{
-        headerShown: true,
-        headerTransparent: true, // Header đè lên ảnh
-        headerTitle: '', // Không hiện title
-        // Nút Back tùy chỉnh (hình tròn trắng)
-        headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.roundHeaderBtn}>
-              <ChevronLeft size={24} color="#111827" />
-            </TouchableOpacity>
-        ),
-        // Nút giỏ hàng bên phải
-        headerRight: () => (
-            <TouchableOpacity onPress={() => router.push('/client/cart')} style={styles.roundHeaderBtn}>
-               <ShoppingBag size={22} color="#111827" />
-            </TouchableOpacity>
-        )
-      }} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* HEADER BUTTONS */}
+      <View style={styles.headerButtons}>
+         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+            <ChevronLeft size={26} color="#fff" />
+         </TouchableOpacity>
+         <TouchableOpacity onPress={toggleFavorite} style={styles.iconBtn}>
+            <Heart size={24} color={isFavorite ? THEME_COLOR : "#fff"} fill={isFavorite ? THEME_COLOR : "transparent"} />
+         </TouchableOpacity>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 100}}>
-        {/* Image Header - Sử dụng getter thumbnail từ Model */}
+        
+        {/* IMAGE */}
         <View style={styles.imageContainer}>
           <Image source={{ uri: cake.thumbnail }} style={styles.image} />
+          <View style={styles.imageOverlay} />
         </View>
 
-        {/* Content Body */}
+        {/* CONTENT */}
         <View style={styles.contentContainer}>
-          {/* Tên và Giá */}
-          <Text style={styles.cakeName}>{cake.name}</Text>
-          <Text style={styles.cakePrice}>${cake.price.toFixed(2)}</Text>
-          
-          {/* Chips: Category & Status */}
-          <View style={styles.chipRow}>
-              {/* Category Chip */}
-              <View style={styles.chip}>
-                  <Tag size={14} color="#6b7280" style={{marginRight: 4}} />
-                  <Text style={styles.chipText}>{cake.category}</Text>
-              </View>
+            
+            {/* Category Chip */}
+            <View style={styles.categoryChip}>
+                <Tag size={12} color={THEME_COLOR} style={{marginRight: 4}} />
+                <Text style={styles.categoryText}>{cake.category}</Text>
+            </View>
 
-              {/* Status Chip - Chỉ hiện nếu không phải Available */}
-              {!cake.isAvailable && (
-                 <View style={[styles.chip, styles.chipError]}>
-                    <Text style={[styles.chipText, styles.chipTextError]}>
-                        {cake.status}
-                    </Text>
-                 </View>
-              )}
-          </View>
+            {/* NAME */}
+            <Text style={styles.cakeName}>{cake.name}</Text>
 
-          {/* Description */}
-          <Text style={styles.sectionTitle}>Mô tả sản phẩm</Text>
-          <Text style={styles.description}>
-            {cake.description || "Chưa có mô tả cho sản phẩm này."}
-          </Text>
+            {/* RATING & DISCOUNT ROW */}
+            <View style={styles.metaRow}>
+                {/* Rating */}
+                {cake.rate > 0 && (
+                    <View style={styles.ratingBadge}>
+                        <Star size={14} color="#fbbf24" fill="#fbbf24" />
+                        <Text style={styles.ratingText}>{cake.rate} (Reviews)</Text>
+                    </View>
+                )}
+
+                {/* Discount Badge */}
+                {cake.discount > 0 && (
+                    <View style={styles.discountBadge}>
+                        <Text style={styles.discountText}>{cake.discount}% OFF</Text>
+                    </View>
+                )}
+            </View>
+
+            {/* PRICE DISPLAY */}
+            <View style={styles.priceRow}>
+                <Text style={styles.finalPrice}>${finalPrice.toFixed(2)}</Text>
+                {cake.discount > 0 && (
+                    <Text style={styles.originalPrice}>${basePrice.toFixed(2)}</Text>
+                )}
+            </View>
+
+            {/* STATUS (If not Available) */}
+            {!cake.isAvailable && (
+                <Text style={styles.statusText}>{cake.status}</Text>
+            )}
+
+            {/* DESCRIPTION */}
+            <Text style={styles.sectionTitle}>Mô tả</Text>
+            <Text style={styles.descText}>
+                {cake.description || "Chưa có mô tả cho sản phẩm này."}
+            </Text>
+
+            {/* SIZE VARIANTS */}
+            {cake.variants && cake.variants.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Chọn kích thước:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop: 10}}>
+                        {cake.variants.map((v, index) => {
+                            const isSelected = selectedVariant?.label === v.label;
+                            return (
+                                <TouchableOpacity 
+                                    key={index} 
+                                    style={[styles.sizeBadge, isSelected && styles.sizeBadgeSelected]}
+                                    onPress={() => setSelectedVariant(v)}
+                                >
+                                    <Text style={[styles.sizeText, isSelected && styles.sizeTextSelected]}>
+                                        {v.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            )
+                        })}
+                    </ScrollView>
+                </View>
+            )}
+
+            {/* QUANTITY */}
+            <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Số lượng:</Text>
+                <View style={styles.qtyContainer}>
+                    <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQuantity('decrease')}>
+                        <Minus size={20} color={quantity > 1 ? THEME_COLOR : "#ccc"} />
+                    </TouchableOpacity>
+                    <Text style={styles.qtyText}>{quantity}</Text>
+                    <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQuantity('increase')}>
+                        <Plus size={20} color={THEME_COLOR} />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
         </View>
       </ScrollView>
 
-      {/* Fixed Bottom Action Bar - Sử dụng SafeAreaView để tránh tai thỏ/nút home */}
+      {/* BOTTOM BAR */}
       <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
-         
-         {/* Selector chọn số lượng */}
-         <View style={styles.qtySelector}>
-             <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQuantity('decrease')}>
-                <Minus size={18} color={quantity > 1 ? "#111827" : "#9ca3af"} />
-             </TouchableOpacity>
-             <Text style={styles.qtyText}>{quantity}</Text>
-             <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQuantity('increase')}>
-                <Plus size={18} color="#111827" />
-             </TouchableOpacity>
-         </View>
-
-         {/* Nút Thêm vào giỏ hàng */}
-         <TouchableOpacity 
-            style={[styles.addToCartBtn, !cake.isAvailable && styles.disabledBtn]}
+          <TouchableOpacity 
+            // Chỉ đổi style xám đi nếu status là 'Out of Stock'
+            style={[styles.mainButton, cake.status === 'Out of Stock' && styles.disabledButton]} 
             onPress={handleAddToCart}
-            disabled={!cake.isAvailable} // Disable nếu hết hàng
-         >
-             <ShoppingBag size={20} color="#fff" style={{marginRight: 8}} />
-             <Text style={styles.addToCartText}>
-                {cake.isAvailable ? 'Thêm vào giỏ' : 'Tạm hết hàng'}
+            // Chỉ disable nút nếu status là 'Out of Stock'
+            disabled={cake.status === 'Out of Stock'}
+          >
+             <ShoppingBag size={22} color="#fff" style={{marginRight: 10}} />
+             <Text style={styles.mainButtonText}>
+                {/* Nếu không phải 'Out of Stock' thì vẫn hiện nút mua */}
+                {cake.status !== 'Out of Stock' 
+                    ? `Thêm vào giỏ  •  $${totalPrice.toFixed(2)}` 
+                    : 'Tạm hết hàng'
+                }
              </Text>
-         </TouchableOpacity>
+          </TouchableOpacity>
       </SafeAreaView>
 
     </View>
@@ -185,62 +213,77 @@ export default function DetailCakeScreen() {
 }
 
 const styles = StyleSheet.create({
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  errorText: { fontSize: 18, color: '#dc2626', marginBottom: 20 },
-  backButtonSimple: { padding: 10, backgroundColor: '#f3f4f6', borderRadius: 8 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
-  // Header Buttons Custom
-  roundHeaderBtn: {
-    width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.9)', 
-    justifyContent: 'center', alignItems: 'center', borderRadius: 20,
-    marginLeft: 10, marginRight: 10,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5,
+  headerButtons: { 
+    position: 'absolute', top: 50, left: 20, right: 20, zIndex: 10, 
+    flexDirection: 'row', justifyContent: 'space-between' 
+  },
+  iconBtn: { 
+    width: 42, height: 42, borderRadius: 21, 
+    backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
   },
 
-  // Image Header
-  imageContainer: { width: width, height: width * 0.8, backgroundColor: '#f3f4f6' },
+  imageContainer: { width: width, height: width * 0.85 },
   image: { width: '100%', height: '100%', resizeMode: 'cover' },
+  imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.1)' },
 
-  // Content Body
   contentContainer: { 
-    padding: 24, 
-    borderTopLeftRadius: 30, borderTopRightRadius: 30, 
-    marginTop: -30, // Kỹ thuật đẩy content đè lên ảnh
-    backgroundColor: '#fff' 
+    flex: 1, backgroundColor: '#fff', 
+    marginTop: -40, borderTopLeftRadius: 35, borderTopRightRadius: 35, 
+    padding: 24, paddingBottom: 30
   },
-  cakeName: { fontSize: 26, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
-  cakePrice: { fontSize: 22, fontWeight: 'bold', color: THEME_COLOR, marginBottom: 16 },
 
-  // Chips
-  chipRow: { flexDirection: 'row', marginBottom: 24, flexWrap: 'wrap', gap: 10 },
-  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#f3f4f6' },
-  chipText: { fontSize: 14, color: '#4b5563', fontWeight: '500' },
-  chipError: { backgroundColor: '#fee2e2' },
-  chipTextError: { color: '#dc2626' },
-
-  // Description
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 10 },
-  description: { fontSize: 16, color: '#4b5563', lineHeight: 24 },
-
-  // Bottom Bar
-  bottomBar: { 
-    position: 'absolute', bottom: 0, left: 0, right: 0, 
-    backgroundColor: '#fff', paddingVertical: 10, paddingHorizontal: 20,
-    borderTopWidth: 1, borderTopColor: '#f3f4f6',
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 10,
+  // Category
+  categoryChip: { 
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    backgroundColor: '#fff7ed', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 8 
   },
+  categoryText: { color: THEME_COLOR, fontWeight: '600', fontSize: 12 },
   
-  // Quantity Selector
-  qtySelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 25, padding: 4 },
-  qtyBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', borderRadius: 20, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
+  // Name
+  cakeName: { fontSize: 26, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
+
+  // Meta Row (Rating & Discount)
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffbeb', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 10 },
+  ratingText: { marginLeft: 4, fontWeight: 'bold', color: '#b45309', fontSize: 12 },
+  discountBadge: { backgroundColor: '#ef4444', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  discountText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
+
+  // Price Row
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 15 },
+  finalPrice: { fontSize: 28, fontWeight: 'bold', color: THEME_COLOR },
+  originalPrice: { fontSize: 16, color: '#9ca3af', textDecorationLine: 'line-through', marginLeft: 10 },
+
+  statusText: { color: '#ef4444', fontWeight: '600', marginBottom: 15 },
+  
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginTop: 15, marginBottom: 8 },
+  descText: { fontSize: 15, color: '#4b5563', lineHeight: 24 },
+
+  // Size Variants
+  section: { marginTop: 10 },
+  sizeBadge: { 
+    minWidth: 60, height: 40, borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', 
+    justifyContent: 'center', alignItems: 'center', marginRight: 12, backgroundColor: '#f9fafb', paddingHorizontal: 10
+  },
+  sizeBadgeSelected: { backgroundColor: THEME_COLOR, borderColor: THEME_COLOR },
+  sizeText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  sizeTextSelected: { color: '#fff' },
+
+  // Quantity
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25 },
+  qtyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, padding: 4 },
+  qtyBtn: { width: 36, height: 36, backgroundColor: '#fff', borderRadius: 10, justifyContent: 'center', alignItems: 'center', shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   qtyText: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 16, color: '#111827' },
 
-  // Add to Cart Btn
-  addToCartBtn: { 
-    flex: 1, marginLeft: 20, height: 50, backgroundColor: THEME_COLOR, 
-    borderRadius: 25, flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+  bottomBar: { backgroundColor: '#fff', padding: 20, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
+  mainButton: { 
+    backgroundColor: THEME_COLOR, borderRadius: 16, height: 56, 
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    shadowColor: THEME_COLOR, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5
   },
-  disabledBtn: { backgroundColor: '#9ca3af' },
-  addToCartText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  disabledButton: { backgroundColor: '#9ca3af', shadowOpacity: 0 },
+  mainButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });
