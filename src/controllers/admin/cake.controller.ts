@@ -1,5 +1,5 @@
 import { db } from '../../services/firebaseConfig';
-import { collection, addDoc, query, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, getDocs, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { Cake, CakeData } from '../../models/cake.model';
 
 // Hàm thêm bánh mới vào Firestore
@@ -55,6 +55,43 @@ export const deleteCake = async (id: string): Promise<void> => {
     console.log('Cake deleted successfully');
   } catch (error) {
     console.error('Error deleting cake:', error);
+    throw error;
+  }
+};
+export const getCakeById = async (id: string): Promise<Cake | null> => {
+  try {
+    // 1. Clean ID: Xóa khoảng trắng thừa nếu có
+    const cleanId = id.trim();
+    
+    // 2. Tạo tham chiếu (Query)
+    const cakeRef = doc(db, 'cakes', cleanId);
+
+    // --- DEBUG LOG (Xem kết quả ở Terminal) ---
+    console.log(`[DEBUG] Đang tìm trong Collection: "cakes"`);
+    console.log(`[DEBUG] Đang tìm Document ID: "${cleanId}"`);
+    console.log(`[DEBUG] Full Path: ${cakeRef.path}`);
+    // -----------------------------------------
+
+    const cakeSnap = await getDoc(cakeRef);
+
+    if (cakeSnap.exists()) {
+      console.log(`[SUCCESS] Đã tìm thấy bánh:`, cakeSnap.data().name);
+      return Cake.fromFirestore(cakeSnap);
+    } else {
+      console.log(`[ERROR] Document không tồn tại! Hãy kiểm tra lại ID hoặc tên Collection.`);
+      
+      // Mẹo Debug: In ra thử 3 ID đầu tiên trong collection để so sánh
+      // Bạn có thể bỏ comment đoạn dưới để check nếu vẫn lỗi
+      /*
+      const snapshot = await getDocs(collection(db, 'cakes'));
+      console.log("Danh sách ID thực tế có trong DB:");
+      snapshot.docs.slice(0, 3).forEach(d => console.log("- " + d.id));
+      */
+      
+      return null;
+    }
+  } catch (error) {
+    console.error('Error getting cake details:', error);
     throw error;
   }
 };

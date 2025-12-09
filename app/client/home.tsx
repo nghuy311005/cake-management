@@ -57,8 +57,13 @@ export default function ClientHomeScreen() {
 
   // Xử lý khi bấm vào bánh (Sau này sẽ dẫn sang trang product)
   const handleProductPress = (id: string) => {
-    console.log("Xem chi tiết bánh:", id);
-    // router.push(`/client/product/${id}`); // Tạm thời comment vì chưa tạo trang product
+    console.log("Bấm vào bánh có ID:", id);
+    
+    // Điều hướng sang file detailCake và kèm theo params id
+    router.push({
+      pathname: "/client/detailCake",
+      params: { id: id }
+    });
   };
 
   return (

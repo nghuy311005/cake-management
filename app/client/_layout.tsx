@@ -59,6 +59,14 @@ export default function ClientLayout() {
           tabBarIcon: ({ color }) => <User size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="detailCake" // Tên phải trùng với tên file detailCake.tsx
+        options={{
+          href: null, // Ẩn khỏi menu tabs
+          tabBarStyle: { display: 'none' }, // Ẩn thanh tab bar khi vào trang này
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }
