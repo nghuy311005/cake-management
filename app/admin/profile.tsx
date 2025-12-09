@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, Bell, Shield, CreditCard, HelpCircle, LogOut, ChevronRight, Moon, UserPlus } from 'lucide-react-native';
 // 1. Sửa import ở đây
 import { useRouter } from 'expo-router';
+import { logoutUser } from '../../src/controllers/auth.controller';
 
 export default function ProfileScreen() {
   // 2. Khai báo router ở đây
@@ -11,6 +12,28 @@ export default function ProfileScreen() {
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Log Out", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await logoutUser(); // Gọi Firebase logout
+              // Dùng replace để người dùng không bấm nút Back quay lại được
+              router.replace('/auth/LoginScreen'); 
+            } catch (error) {
+              Alert.alert("Error", "Could not log out.");
+            }
+          } 
+        }
+      ]
+    );
+  };
 
   const menuSections = [
     {
@@ -134,7 +157,7 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton}onPress={handleLogout}>
           <LogOut size={20} color="#dc2626" />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>

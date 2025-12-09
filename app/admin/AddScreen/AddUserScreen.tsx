@@ -11,6 +11,7 @@ import { X, Upload, CheckCircle, Eye, EyeOff } from 'lucide-react-native';
 import { User } from '../../../src/models/user.model';
 import { addUserToFirestore } from '../../../src/controllers/admin/auth.controller';
 import { pickImageFromGallery, uploadToCloudinary } from '../../../src/helper/uploadImage';
+import { isValidEmail, isValidPassword } from '../../../src/helper/authCheck';
 
 export default function AddUserScreen() {
   const router = useRouter();
@@ -32,24 +33,46 @@ export default function AddUserScreen() {
     if (uri) setAvatarUri(uri);
   };
 
+  // 2. Lưu User
   const handleSave = async () => {
+
+    const cleanEmail = email.trim(); 
+    const cleanPassword = password.trim();
+
     if (!email || !phone || !password) {
       Alert.alert('Missing Info', 'Please enter Email, Password and Phone number.');
       return;
     }
 
+    // 3. Sử dụng hàm từ Helper để check Email
+    if (!isValidEmail(cleanEmail)) {
+      Alert.alert('Email sai', 'Vui lòng nhập email đúng định dạng (ví dụ: abc@gmail.com)');
+      return;
+    }
+
+    // 4. Sử dụng hàm từ Helper để check Password
+    if (!isValidPassword(cleanPassword)) {
+      Alert.alert('Mật khẩu yếu', 'Mật khẩu phải có ít nhất 6 ký tự.');
+      return;
+    }
+
     setLoading(true);
     try {
-      let avatarUrl = 'https://via.placeholder.com/150';
+      // --- KHAI BÁO BIẾN avatarUrl TẠI ĐÂY ---
+      let avatarUrl = 'https://via.placeholder.com/150'; // Giá trị mặc định
+      
+      // Nếu có ảnh từ máy (avatarUri), upload lên Cloudinary và lấy link gán vào avatarUrl
       if (avatarUri) {
         avatarUrl = await uploadToCloudinary(avatarUri);
       }
+      // ---------------------------------------
 
+      // Tạo Model User
       const newUser = new User(
         '', 
         email,
         phone,
-        avatarUrl,
+        avatarUrl, // <-- Bây giờ biến này đã tồn tại để truyền vào
         address,
         [], 
         role,
@@ -70,14 +93,14 @@ export default function AddUserScreen() {
             setAddress('');
             setRole('client');
             setAvatarUri(null);
-            setShowPassword(false); // Reset luôn trạng thái hiển thị pass
+            setShowPassword(false);
             
             router.back(); 
           } 
         }
       ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add user.');
+    } catch (error: any) { // Thêm : any để tránh lỗi type error
+      Alert.alert('Error', error.message || 'Failed to add user.');
       console.error(error);
     } finally {
       setLoading(false);
