@@ -129,6 +129,20 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="AddScreen/AddUserScreen"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+          headerShown: true,
+          title: 'Create Account',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
+              <ChevronLeft size={28} color="#111827" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
     </Tabs>
   );
 }

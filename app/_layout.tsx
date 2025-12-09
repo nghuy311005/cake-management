@@ -8,7 +8,7 @@ export default function RootLayout() {
   return (
     <>
       {/* Thêm initialRouteName="admin" */}
-      <Stack initialRouteName="client" screenOptions={{ headerShown: false }}>
+      <Stack initialRouteName="admin" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="client" />
         <Stack.Screen name="admin" />
         <Stack.Screen name="+not-found" />

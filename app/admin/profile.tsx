@@ -1,9 +1,14 @@
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Bell, Shield, CreditCard, HelpCircle, LogOut, ChevronRight, Moon } from 'lucide-react-native';
-import { useState } from 'react';
+import { User, Bell, Shield, CreditCard, HelpCircle, LogOut, ChevronRight, Moon, UserPlus } from 'lucide-react-native';
+// 1. Sửa import ở đây
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
+  // 2. Khai báo router ở đây
+  const router = useRouter();
+  
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
@@ -12,10 +17,17 @@ export default function ProfileScreen() {
       title: 'Account',
       items: [
         { icon: User, label: 'Personal Information', hasArrow: true },
-        { icon: Shield, label: 'Security & Privacy', hasArrow: true },
+        { 
+            icon: UserPlus, 
+            label: 'Create Account', 
+            hasArrow: true,
+            // 3. Sử dụng router.push bình thường
+            onPress: () => router.push('/admin/AddScreen/AddUserScreen') 
+          },
         { icon: CreditCard, label: 'Payment Methods', hasArrow: true },
       ],
     },
+    // ... Các phần còn lại giữ nguyên ...
     {
       title: 'Preferences',
       items: [
@@ -45,6 +57,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ... Phần giao diện giữ nguyên ... */}
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
       </View>
@@ -84,13 +97,14 @@ export default function ProfileScreen() {
           <View key={sectionIndex} style={styles.menuSection}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.menuCard}>
-              {section.items.map((item, itemIndex) => {
+              {section.items.map((item: any, itemIndex) => { // Type any tạm thời
                 const Icon = item.icon;
                 return (
                   <View key={itemIndex}>
                     <TouchableOpacity
                       style={styles.menuItem}
                       disabled={item.hasSwitch}
+                      onPress={item.onPress} // Gắn sự kiện onPress
                     >
                       <View style={styles.menuItemLeft}>
                         <View style={styles.iconContainer}>
