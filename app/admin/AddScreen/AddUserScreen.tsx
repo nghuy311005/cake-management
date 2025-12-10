@@ -5,8 +5,7 @@ import {
   KeyboardAvoidingView, Platform 
 } from 'react-native';
 import { useRouter } from 'expo-router';
-// 1. Thêm Icon Eye và EyeOff
-import { X, Upload, CheckCircle, Eye, EyeOff } from 'lucide-react-native';
+import { Upload, CheckCircle, Eye, EyeOff } from 'lucide-react-native';
 
 import { User } from '../../../src/models/user.model';
 import { addUserToFirestore } from '../../../src/controllers/admin/auth.controller';
@@ -18,6 +17,7 @@ export default function AddUserScreen() {
   const [loading, setLoading] = useState(false);
 
   // Form State
+  const [name, setName] = useState(''); // [MỚI] Thêm state name
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -25,7 +25,6 @@ export default function AddUserScreen() {
   const [role, setRole] = useState<'admin' | 'client'>('client');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
-  // 2. State điều khiển hiện/ẩn password
   const [showPassword, setShowPassword] = useState(false);
 
   const handlePickAvatar = async () => {
@@ -33,24 +32,22 @@ export default function AddUserScreen() {
     if (uri) setAvatarUri(uri);
   };
 
-  // 2. Lưu User
   const handleSave = async () => {
-
     const cleanEmail = email.trim(); 
     const cleanPassword = password.trim();
+    const cleanName = name.trim(); // [MỚI]
 
-    if (!email || !phone || !password) {
-      Alert.alert('Missing Info', 'Please enter Email, Password and Phone number.');
+    // Validate
+    if (!cleanName || !email || !phone || !password) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Tên, Email, SĐT và Mật khẩu.');
       return;
     }
 
-    // 3. Sử dụng hàm từ Helper để check Email
     if (!isValidEmail(cleanEmail)) {
       Alert.alert('Email sai', 'Vui lòng nhập email đúng định dạng (ví dụ: abc@gmail.com)');
       return;
     }
 
-    // 4. Sử dụng hàm từ Helper để check Password
     if (!isValidPassword(cleanPassword)) {
       Alert.alert('Mật khẩu yếu', 'Mật khẩu phải có ít nhất 6 ký tự.');
       return;
@@ -58,35 +55,33 @@ export default function AddUserScreen() {
 
     setLoading(true);
     try {
-      // --- KHAI BÁO BIẾN avatarUrl TẠI ĐÂY ---
-      let avatarUrl = 'https://via.placeholder.com/150'; // Giá trị mặc định
-      
-      // Nếu có ảnh từ máy (avatarUri), upload lên Cloudinary và lấy link gán vào avatarUrl
+      let avatarUrl = 'https://via.placeholder.com/150';
       if (avatarUri) {
         avatarUrl = await uploadToCloudinary(avatarUri);
       }
-      // ---------------------------------------
 
-      // Tạo Model User
+      // Tạo Model User (Cập nhật theo constructor mới)
       const newUser = new User(
-        '', 
-        email,
+        '',             // id (để trống, controller sẽ xử lý hoặc firestore tự sinh)
+        cleanEmail,
+        cleanName,      // [MỚI] Truyền name vào vị trí thứ 3 (theo constructor đã sửa)
         phone,
-        avatarUrl, // <-- Bây giờ biến này đã tồn tại để truyền vào
+        avatarUrl,
         address,
-        [], 
+        [],             // favorites
         role,
         Date.now(),
-        password 
+        cleanPassword 
       );
 
       await addUserToFirestore(newUser);
 
-      Alert.alert('Success', 'User added successfully!', [
+      Alert.alert('Thành công', 'Đã thêm người dùng mới!', [
         { 
           text: 'OK', 
           onPress: () => {
             // Reset form
+            setName(''); // [MỚI]
             setEmail('');
             setPassword('');
             setPhone('');
@@ -99,8 +94,8 @@ export default function AddUserScreen() {
           } 
         }
       ]);
-    } catch (error: any) { // Thêm : any để tránh lỗi type error
-      Alert.alert('Error', error.message || 'Failed to add user.');
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.message || 'Failed to add user.');
       console.error(error);
     } finally {
       setLoading(false);
@@ -110,8 +105,6 @@ export default function AddUserScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-        
-
         <ScrollView contentContainerStyle={styles.content}>
           
           {/* Avatar */}
@@ -128,8 +121,17 @@ export default function AddUserScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* [MỚI] Input Name */}
+          <Text style={styles.label}>Full Name (*)</Text>
+          <TextInput 
+            style={styles.input} 
+            placeholder="John Doe" 
+            value={name} 
+            onChangeText={setName}
+          />
+
           {/* Email */}
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>Email (*)</Text>
           <TextInput 
             style={styles.input} 
             placeholder="user@example.com" 
@@ -139,30 +141,26 @@ export default function AddUserScreen() {
             autoCapitalize="none"
           />
 
-          {/* --- 3. PASSWORD INPUT CÓ NÚT SHOW/HIDE --- */}
-          <Text style={styles.label}>Password</Text>
+          {/* Password */}
+          <Text style={styles.label}>Password (*)</Text>
           <View style={styles.passwordContainer}>
             <TextInput 
               style={styles.passwordInput} 
               placeholder="Min 6 characters" 
               value={password} 
               onChangeText={setPassword}
-              secureTextEntry={!showPassword} // Đảo ngược logic: !true = false (hiện), !false = true (ẩn)
+              secureTextEntry={!showPassword}
             />
             <TouchableOpacity 
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
             >
-              {showPassword ? (
-                <EyeOff size={20} color="#6b7280" />
-              ) : (
-                <Eye size={20} color="#6b7280" />
-              )}
+              {showPassword ? <EyeOff size={20} color="#6b7280" /> : <Eye size={20} color="#6b7280" />}
             </TouchableOpacity>
           </View>
 
           {/* Phone */}
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={styles.label}>Phone Number (*)</Text>
           <TextInput 
             style={styles.input} 
             placeholder="0901234567" 
@@ -212,8 +210,6 @@ export default function AddUserScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
   content: { padding: 20 },
   
   avatarContainer: { alignItems: 'center', marginBottom: 20 },
@@ -225,26 +221,11 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 10 },
   input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: '#f9fafb' },
 
-  // --- STYLE MỚI CHO PASSWORD CONTAINER ---
   passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    backgroundColor: '#f9fafb',
-    paddingHorizontal: 12, // Padding ngang cho container
+    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, backgroundColor: '#f9fafb', paddingHorizontal: 12,
   },
-  passwordInput: {
-    flex: 1, // Chiếm hết không gian còn lại
-    paddingVertical: 12, // Giữ padding dọc giống input thường
-    fontSize: 16,
-    // Không set padding ngang ở đây nữa
-  },
-  eyeIcon: {
-    padding: 4, // Tăng vùng bấm cho dễ bấm
-  },
-  // ----------------------------------------
+  passwordInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
+  eyeIcon: { padding: 4 },
 
   roleContainer: { flexDirection: 'row', gap: 15, marginTop: 5 },
   roleBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff' },

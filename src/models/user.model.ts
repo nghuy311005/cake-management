@@ -1,21 +1,21 @@
-// src/models/user.model.ts
-
 export type UserRole = 'admin' | 'client';
 
 export interface UserData {
+  name: string;        // [MỚI] Thêm tên hiển thị
   email: string;
   phone: string;
   avatarUrl: string;
   address: string;
-  favorites: string[]; // Mảng chứa ID các bánh yêu thích
+  favorites: string[];
   role: UserRole;
   createdAt: number;
 }
 
 export class User {
   id: string;
+  name: string;        // [MỚI]
   email: string;
-  password?: string; // Password chỉ dùng khi input, không lưu plaintext vào firestore
+  password?: string;
   phone: string;
   avatarUrl: string;
   address: string;
@@ -26,6 +26,7 @@ export class User {
   constructor(
     id: string,
     email: string,
+    name: string,      // [MỚI] Thêm tham số name vào constructor
     phone: string,
     avatarUrl: string,
     address: string,
@@ -36,6 +37,7 @@ export class User {
   ) {
     this.id = id;
     this.email = email;
+    this.name = name;  // [MỚI]
     this.phone = phone;
     this.avatarUrl = avatarUrl;
     this.address = address;
@@ -45,9 +47,10 @@ export class User {
     this.password = password;
   }
 
-  // Convert để lưu lên Firestore (Không lưu password)
+  // Convert để lưu lên Firestore
   toFirestore(): UserData {
     return {
+      name: this.name, // [MỚI] Lưu name lên DB
       email: this.email,
       phone: this.phone,
       avatarUrl: this.avatarUrl,
@@ -64,6 +67,7 @@ export class User {
     return new User(
       doc.id,
       data.email || '',
+      data.name || 'User', // [MỚI] Lấy name từ DB, mặc định là 'User' nếu thiếu
       data.phone || '',
       data.avatarUrl || '',
       data.address || '',

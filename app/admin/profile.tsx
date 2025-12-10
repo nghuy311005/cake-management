@@ -1,17 +1,58 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Bell, Shield, CreditCard, HelpCircle, LogOut, ChevronRight, Moon, UserPlus } from 'lucide-react-native';
-// 1. Sửa import ở đây
-import { useRouter } from 'expo-router';
+import { User, Bell, CreditCard, HelpCircle, LogOut, ChevronRight, Moon, Lock , UserPlus, Users } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+// Firebase Imports
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { db } from '../../src/services/firebaseConfig';
 import { logoutUser } from '../../src/controllers/auth.controller';
+import EditProfileModal from '@/src/views/components/modals/EditProfileModal';
+import ChangePasswordModal from '@/src/views/components/modals/ChangePasswordModal';
 
 export default function ProfileScreen() {
-  // 2. Khai báo router ở đây
   const router = useRouter();
+  const auth = getAuth();
   
+  // State UI
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+
+  // State Data
+  const [userInfo, setUserInfo] = useState<any>({});
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [changePassVisible, setChangePassVisible] = useState(false);
+
+  // 1. Hàm lấy dữ liệu Profile & Stats
+  const fetchProfileData = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        // Lấy thông tin user hiện tại
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          setUserInfo(userDoc.data());
+        }
+
+        // Đếm tổng số lượng users trong hệ thống (Thay cho Rating)
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        setTotalUsers(usersSnapshot.size);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy data profile:", error);
+    }
+  };
+
+  // Gọi lại hàm này mỗi khi màn hình được focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileData();
+    }, [])
+  );
+
   const handleLogout = () => {
     Alert.alert(
       "Log Out",
@@ -23,8 +64,7 @@ export default function ProfileScreen() {
           style: "destructive", 
           onPress: async () => {
             try {
-              await logoutUser(); // Gọi Firebase logout
-              // Dùng replace để người dùng không bấm nút Back quay lại được
+              await logoutUser();
               router.replace('/auth/LoginScreen'); 
             } catch (error) {
               Alert.alert("Error", "Could not log out.");
@@ -35,22 +75,26 @@ export default function ProfileScreen() {
     );
   };
 
+
   const menuSections = [
     {
       title: 'Account',
       items: [
-        { icon: User, label: 'Personal Information', hasArrow: true },
+        { icon: User, label: 'Personal Information', hasArrow: true ,onPress: () => setEditModalVisible(true)},
         { 
             icon: UserPlus, 
             label: 'Create Account', 
             hasArrow: true,
-            // 3. Sử dụng router.push bình thường
             onPress: () => router.push('/admin/AddScreen/AddUserScreen') 
-          },
-        { icon: CreditCard, label: 'Payment Methods', hasArrow: true },
+        },
+        { 
+            icon: Lock, // Đổi icon thành cái khoá
+            label: 'Change Password', 
+            hasArrow: true,
+            onPress: () => setChangePassVisible(true) // Mở modal
+        },
       ],
     },
-    // ... Các phần còn lại giữ nguyên ...
     {
       title: 'Preferences',
       items: [
@@ -80,7 +124,6 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ... Phần giao diện giữ nguyên ... */}
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
       </View>
@@ -89,14 +132,25 @@ export default function ProfileScreen() {
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* --- PHẦN HIỂN THỊ USER ĐÃ SỬA --- */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <User size={32} color="#d97706" />
-            </View>
+            {userInfo.avatarUrl ? (
+                // Nếu có ảnh thì hiện ảnh
+                <View style={styles.avatarWrapper}>
+                    <Image source={{ uri: userInfo.avatarUrl }} style={styles.avatarImage} />
+                </View>
+            ) : (
+                // Không có ảnh thì hiện icon mặc định
+                <View style={styles.avatar}>
+                    <User size={32} color="#d97706" />
+                </View>
+            )}
           </View>
-          <Text style={styles.profileName}>Baker's Kitchen</Text>
-          <Text style={styles.profileEmail}>bakery@example.com</Text>
+          
+          {/* Hiển thị tên thật */}
+          <Text style={styles.profileName}>{userInfo.name || "Admin User"}</Text>
+          <Text style={styles.profileEmail}>{userInfo.email || "admin@example.com"}</Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
@@ -109,10 +163,13 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Revenue</Text>
             </View>
             <View style={styles.statDivider} />
+            
+            {/* --- SỬA RATING THÀNH USERS COUNT --- */}
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>4.8</Text>
-              <Text style={styles.statLabel}>Rating</Text>
+              <Text style={styles.statValue}>{totalUsers}</Text>
+              <Text style={styles.statLabel}>Users</Text>
             </View>
+            {/* ------------------------------------ */}
           </View>
         </View>
 
@@ -120,14 +177,14 @@ export default function ProfileScreen() {
           <View key={sectionIndex} style={styles.menuSection}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.menuCard}>
-              {section.items.map((item: any, itemIndex) => { // Type any tạm thời
+              {section.items.map((item: any, itemIndex) => {
                 const Icon = item.icon;
                 return (
                   <View key={itemIndex}>
                     <TouchableOpacity
                       style={styles.menuItem}
                       disabled={item.hasSwitch}
-                      onPress={item.onPress} // Gắn sự kiện onPress
+                      onPress={item.onPress}
                     >
                       <View style={styles.menuItemLeft}>
                         <View style={styles.iconContainer}>
@@ -157,13 +214,25 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.logoutButton}onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut size={20} color="#dc2626" />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
         <Text style={styles.version}>Version 1.0.0</Text>
       </ScrollView>
+      <EditProfileModal 
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        user={userInfo}
+        onUpdateSuccess={() => {
+            fetchProfileData(); // Reload lại màn hình Profile sau khi sửa xong
+        }}
+      />
+      <ChangePasswordModal 
+        visible={changePassVisible}
+        onClose={() => setChangePassVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -210,6 +279,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Style mới cho ảnh avatar thật
+  avatarWrapper: {
+    width: 80, height: 80, borderRadius: 40, overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb'
+  },
+  avatarImage: { width: '100%', height: '100%' },
+
   profileName: {
     fontSize: 20,
     fontWeight: '700',
